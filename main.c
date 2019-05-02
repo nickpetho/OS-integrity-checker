@@ -1,15 +1,13 @@
-#include "vdiFunctions.h"
 #include <stdio.h>
 #include <inttypes.h>
+#include "vdiStructure.h"
+#include "vdiFunctions.h"
 
-#define SEEK_START 0
-#define SEEK_CURSOR 1
-#define SEEK_END 2
+#define path "../../VDI_Files/Test-fixed-1k.vdi"
 
-int main(int argv, char *argv[]) {
-    char *fileName;
-    struct vdiFile *vdiPtr;
-    fileName = argv[1];
-    vdiPtr = vdiOpen(fileName);
-
+int main() {
+    vdiFile* vdi = vdiOpen(path);
+    printf("Block size in bytes: %d", vdi->superBlock->blockSize);
+    int n = 5;
+    return 0;
 }
