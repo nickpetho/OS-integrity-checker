@@ -45,7 +45,7 @@ typedef struct{
     uint32_t lastWriteTime;
     uint16_t numberOfTimesMounted;
     uint16_t numberOfMountsAllowed;
-    uint16_t signature;
+    uint16_t magicNumber;
     uint16_t fileSystemState;
     uint16_t errorHandler;
     uint16_t minorVersion;
@@ -60,11 +60,82 @@ typedef struct{
 
 } SuperBlock;
 
+typedef struct{
+    uint32_t addressOfBlockUsage;
+    uint32_t addressOfInodeUsage;
+    uint32_t startingAddressOfInodeTable;
+    uint16_t numberOfUnallocatedBlocksInGroup;
+    uint16_t numberOfUnallocatedInodesInGroup;
+    uint16_t numberOfDirectoriesInGroup;
+} BlockGroupDescriptorTable;
+
+typedef struct{
+    uint16_t typeAndPermissions;
+    uint16_t userID;
+    uint32_t lower32BitsInBytes;
+    uint32_t lastAccessTime;
+    uint32_t creationTime;
+    uint32_t lastModificationTime;
+    uint32_t deletionTime;
+    uint16_t groupID;
+    uint16_t countOfHardLinks;
+    uint32_t countOfDiskSectors;
+    uint32_t flags;
+    uint32_t osSpecificValue1;
+    uint32_t directBlockPointer0;
+    uint32_t directBlockPointer1;
+    uint32_t directBlockPointer2;
+    uint32_t directBlockPointer3;
+    uint32_t directBlockPointer4;
+    uint32_t directBlockPointer5;
+    uint32_t directBlockPointer6;
+    uint32_t directBlockPointer7;
+    uint32_t directBlockPointer8;
+    uint32_t directBlockPointer9;
+    uint32_t directBlockPointer10;
+    uint32_t directBlockPointer11;
+    uint32_t singlyIndirectBlockPointer;
+    uint32_t doublyIndirectBlockPointer;
+    uint32_t triplyIndirectBlockPointer;
+    uint32_t generationNumber;
+    uint32_t reservedField1;
+    uint32_t reservedField2;
+    uint32_t blockAddressOfFragment;
+    uint32_t osSpecificValue2[12];
+
+} Inode;
+
+typedef struct {
+    Inode* inode;
+    long long cursor;
+    uint8_t* contents;
+    char* name;
+    uint32_t inodeNumber;
+    //opendirectory(inode* inode, )
+    //malloc array big enough to hold directory
+    //read in stuff
+    //rewindDirectory()
+    //set cursor to 0 or 24 to skip . and .. directories
+    //getNextEntry()
+    //return true if there is a next entry, false otherwise
+    //uses cursor to go into array thats been read in, get next directory entry (inode and name)
+    //then move cursor to next record
+    //if cursor = filesize return false
+    //else return true
+
+} Directory;
+
+typedef struct {
+    uint8_t ** iNodeBitmap;
+    uint8_t ** blockBitmap;
+} Bitmaps;
+
 typedef struct vdiFile{
     vdiHeader* header;
     long long cursor;
     FILE* file;
     SuperBlock* superBlock;
+    BlockGroupDescriptorTable* blockGroupDescriptorTable;
 }vdiFile;
 
 #endif //INTEGRITY_CHECKER_VDISTRUCTURE_H

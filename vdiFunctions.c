@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdint.h>
-#include <fcntl.h>
 #include <string.h>
 #include <vdiFunctions.h>
 
@@ -10,9 +8,10 @@ vdiFile* vdiOpen(char *fileName){
     vdiFile* vdi = (vdiFile*) malloc(sizeof(vdiFile));
     vdi ->header = (vdiHeader*) malloc(sizeof(vdiHeader));
     vdi ->superBlock = (SuperBlock*) malloc(sizeof(SuperBlock));
+    vdi ->blockGroupDescriptorTable = (BlockGroupDescriptorTable*) malloc(sizeof(BlockGroupDescriptorTable));
     vdi ->file = fopen(fileName, "rb");
     if(vdi->file == NULL){
-        printf("You fucked up");
+        printf("Error: cannot open file");
         vdiClose(vdi);
         return NULL;
     }
@@ -50,6 +49,10 @@ vdiFile* vdiOpen(char *fileName){
     uint8_t superBlockBuffer[1024];
     vdiSeek(vdi, 1024, 0);
     vdiRead(vdi, superBlockBuffer, 1024);
+    fetchBlock(vdi, superBlockBuffer, 0);
+
+    uint32_t numberOfBlockGroups = (1+((vdi->superBlock->totalBlocks)-1))/(vdi->superBlock->blocksPerBlockGroup);
+
 
     memcpy(&vdi->superBlock->totalInodes, superBlockBuffer, 4);
     memcpy(&vdi->superBlock->totalBlocks, superBlockBuffer + 4, 4);
@@ -66,7 +69,7 @@ vdiFile* vdiOpen(char *fileName){
     memcpy(&vdi->superBlock->lastWriteTime, superBlockBuffer + 48, 4);
     memcpy(&vdi->superBlock->numberOfTimesMounted, superBlockBuffer + 52, 2);
     memcpy(&vdi->superBlock->numberOfMountsAllowed, superBlockBuffer + 54, 2);
-    memcpy(&vdi->superBlock->signature, superBlockBuffer + 56, 2);
+    memcpy(&vdi->superBlock->magicNumber, superBlockBuffer + 56, 2);
     memcpy(&vdi->superBlock->fileSystemState, superBlockBuffer + 58, 2);
     memcpy(&vdi->superBlock->errorHandler, superBlockBuffer + 60, 2);
     memcpy(&vdi->superBlock->minorVersion, superBlockBuffer + 62, 2);
@@ -76,16 +79,40 @@ vdiFile* vdiOpen(char *fileName){
     memcpy(&vdi->superBlock->majorPortion, superBlockBuffer + 76, 4);
     memcpy(&vdi->superBlock->userID, superBlockBuffer + 80, 2);
     memcpy(&vdi->superBlock->groupID, superBlockBuffer + 82, 2);
+    memcpy(&vdi->superBlock->numberOfBlockGroups, superBlockBuffer,4);
 
-    //memcpy(&vdi->superBlock->numberOfBlockGroups, superBlockBuffer + 4, 4);
-    //memcpy(&vdi->superBlock->blockSize, superBlockBuffer + 4, 4);
+    uint8_t blockGroupTableBuffer[2048];
+    vdiSeek(vdi, 2048, 0);
+    vdiRead(vdi, blockGroupTableBuffer, 1024);
+    fetchBlock(vdi, blockGroupTableBuffer, 0);
+
+    memcpy(&vdi->blockGroupDescriptorTable->addressOfBlockUsage, blockGroupTableBuffer,4);
+    memcpy(&vdi->blockGroupDescriptorTable->addressOfInodeUsage, blockGroupTableBuffer + 4, 4);
+    memcpy(&vdi->blockGroupDescriptorTable->startingAddressOfInodeTable, blockGroupTableBuffer + 8, 4);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedBlocksInGroup, blockGroupTableBuffer + 12, 2);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedInodesInGroup, blockGroupTableBuffer + 14, 2);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfDirectoriesInGroup, blockGroupTableBuffer + 16, 2);
+
+    /*uint8_t blockGroupTable2Buffer[4096];
+    vdiSeek(vdi, 4096, 0);
+    vdiRead(vdi, blockGroupTable2Buffer, 1024);
+    fetchBlock(vdi, blockGroupTable2Buffer, 0);
+
+    memcpy(&vdi->blockGroupDescriptorTable->addressOfBlockUsage, blockGroupTable2Buffer,4);
+    memcpy(&vdi->blockGroupDescriptorTable->addressOfInodeUsage, blockGroupTable2Buffer + 4, 4);
+    memcpy(&vdi->blockGroupDescriptorTable->startingAddressOfInodeTable, blockGroupTable2Buffer + 8, 4);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedBlocksInGroup, blockGroupTable2Buffer + 12, 2);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedInodesInGroup, blockGroupTable2Buffer + 14, 2);
+    memcpy(&vdi->blockGroupDescriptorTable->numberOfDirectoriesInGroup, blockGroupTable2Buffer + 16, 2);*/
+
     return vdi;
 }
 
 void vdiClose(struct vdiFile *vdi){
-    close(vdi -> file);
-    free(vdi ->header);
-    free(vdi ->superBlock);
+    free(vdi->header);
+    free(vdi->superBlock);
+    free(vdi->blockGroupDescriptorTable);
+    fclose(vdi-> file);
     free(vdi);
 }
 
