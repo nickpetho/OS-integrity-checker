@@ -8,7 +8,6 @@ vdiFile* vdiOpen(char *fileName){
     vdiFile* vdi = (vdiFile*) malloc(sizeof(vdiFile));
     vdi ->header = (vdiHeader*) malloc(sizeof(vdiHeader));
     vdi ->superBlock = (SuperBlock*) malloc(sizeof(SuperBlock));
-    vdi ->blockGroupDescriptorTable = (BlockGroupDescriptorTable*) malloc(sizeof(BlockGroupDescriptorTable));
     vdi ->file = fopen(fileName, "rb");
     if(vdi->file == NULL){
         printf("Error: cannot open file");
@@ -51,9 +50,6 @@ vdiFile* vdiOpen(char *fileName){
     vdiRead(vdi, superBlockBuffer, 1024);
     fetchBlock(vdi, superBlockBuffer, 0);
 
-    uint32_t numberOfBlockGroups = (1+((vdi->superBlock->totalBlocks)-1))/(vdi->superBlock->blocksPerBlockGroup);
-
-
     memcpy(&vdi->superBlock->totalInodes, superBlockBuffer, 4);
     memcpy(&vdi->superBlock->totalBlocks, superBlockBuffer + 4, 4);
     memcpy(&vdi->superBlock->superuserBlocks, superBlockBuffer + 8, 4);
@@ -79,39 +75,37 @@ vdiFile* vdiOpen(char *fileName){
     memcpy(&vdi->superBlock->majorPortion, superBlockBuffer + 76, 4);
     memcpy(&vdi->superBlock->userID, superBlockBuffer + 80, 2);
     memcpy(&vdi->superBlock->groupID, superBlockBuffer + 82, 2);
-    memcpy(&vdi->superBlock->numberOfBlockGroups, superBlockBuffer,4);
 
-    uint8_t blockGroupTableBuffer[2048];
-    vdiSeek(vdi, 2048, 0);
-    vdiRead(vdi, blockGroupTableBuffer, 1024);
-    fetchBlock(vdi, blockGroupTableBuffer, 0);
+    vdi->superBlock->numberOfBlockGroups = (vdi->superBlock->totalBlocks / vdi->superBlock->blocksPerBlockGroup) + 1;
+    vdi->superBlock->blockSize = 1024u << vdi->superBlock->log2BlockSize;
 
-    memcpy(&vdi->blockGroupDescriptorTable->addressOfBlockUsage, blockGroupTableBuffer,4);
-    memcpy(&vdi->blockGroupDescriptorTable->addressOfInodeUsage, blockGroupTableBuffer + 4, 4);
-    memcpy(&vdi->blockGroupDescriptorTable->startingAddressOfInodeTable, blockGroupTableBuffer + 8, 4);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedBlocksInGroup, blockGroupTableBuffer + 12, 2);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedInodesInGroup, blockGroupTableBuffer + 14, 2);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfDirectoriesInGroup, blockGroupTableBuffer + 16, 2);
-
-    /*uint8_t blockGroupTable2Buffer[4096];
-    vdiSeek(vdi, 4096, 0);
-    vdiRead(vdi, blockGroupTable2Buffer, 1024);
-    fetchBlock(vdi, blockGroupTable2Buffer, 0);
-
-    memcpy(&vdi->blockGroupDescriptorTable->addressOfBlockUsage, blockGroupTable2Buffer,4);
-    memcpy(&vdi->blockGroupDescriptorTable->addressOfInodeUsage, blockGroupTable2Buffer + 4, 4);
-    memcpy(&vdi->blockGroupDescriptorTable->startingAddressOfInodeTable, blockGroupTable2Buffer + 8, 4);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedBlocksInGroup, blockGroupTable2Buffer + 12, 2);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfUnallocatedInodesInGroup, blockGroupTable2Buffer + 14, 2);
-    memcpy(&vdi->blockGroupDescriptorTable->numberOfDirectoriesInGroup, blockGroupTable2Buffer + 16, 2);*/
+    uint8_t blockGroupTableBuffer[vdi->superBlock->blockSize];
+    fetchBlock(vdi, blockGroupTableBuffer, 2);
+    vdi->blockGroupDescriptorTable = (BlockGroupDescriptor**) calloc(vdi->superBlock->numberOfBlockGroups, sizeof(BlockGroupDescriptor*));
+    int i;
+    for(i = 0; i < vdi->superBlock->numberOfBlockGroups; i++){
+        vdi->blockGroupDescriptorTable[i] = (BlockGroupDescriptor*) malloc(sizeof(BlockGroupDescriptor));
+        memcpy(&vdi->blockGroupDescriptorTable[i]->addressOfBlockUsage, blockGroupTableBuffer + i*32, 4);
+        memcpy(&vdi->blockGroupDescriptorTable[i]->addressOfInodeUsage, blockGroupTableBuffer + i*32 + 4 , 4);
+        memcpy(&vdi->blockGroupDescriptorTable[i]->startingAddressOfInodeTable, blockGroupTableBuffer + i*32 + 8 , 4);
+        memcpy(&vdi->blockGroupDescriptorTable[i]->numberOfUnallocatedBlocksInGroup, blockGroupTableBuffer + i*32 + 12 , 2);
+        memcpy(&vdi->blockGroupDescriptorTable[i]->numberOfUnallocatedInodesInGroup, blockGroupTableBuffer + i*32 + 14 , 2);
+        memcpy(&vdi->blockGroupDescriptorTable[i]->numberOfDirectoriesInGroup, blockGroupTableBuffer + i*32 + 16 , 2);
+    }
 
     return vdi;
 }
 
 void vdiClose(struct vdiFile *vdi){
+    if(vdi->blockGroupDescriptorTable != NULL){
+        int i;
+        for(i = 0; i < vdi->superBlock->numberOfBlockGroups; i++){
+            free(vdi->blockGroupDescriptorTable[i]);
+        }
+        free(vdi->blockGroupDescriptorTable);
+    }
     free(vdi->header);
     free(vdi->superBlock);
-    free(vdi->blockGroupDescriptorTable);
     fclose(vdi-> file);
     free(vdi);
 }
@@ -136,6 +130,7 @@ void vdiRead(vdiFile* vdi, uint8_t* buffer, size_t nbytes){
     fread(buffer, 1, nbytes, vdi->file);
 }
 
+//seeks to block number, gets that block, then stores it into the buffer.
 void fetchBlock(vdiFile* vdi, uint8_t* buffer, uint32_t blockNumber){
     vdiSeek(vdi, blockNumber*vdi->superBlock->blockSize, 0);
     vdiRead(vdi, buffer, vdi->superBlock->blockSize);

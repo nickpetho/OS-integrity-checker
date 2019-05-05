@@ -57,7 +57,6 @@ typedef struct{
     uint16_t groupID;
     uint32_t numberOfBlockGroups;
     uint32_t blockSize;
-
 } SuperBlock;
 
 typedef struct{
@@ -67,7 +66,7 @@ typedef struct{
     uint16_t numberOfUnallocatedBlocksInGroup;
     uint16_t numberOfUnallocatedInodesInGroup;
     uint16_t numberOfDirectoriesInGroup;
-} BlockGroupDescriptorTable;
+} BlockGroupDescriptor;
 
 typedef struct{
     uint16_t typeAndPermissions;
@@ -102,40 +101,14 @@ typedef struct{
     uint32_t reservedField2;
     uint32_t blockAddressOfFragment;
     uint32_t osSpecificValue2[12];
-
 } Inode;
-
-typedef struct {
-    Inode* inode;
-    long long cursor;
-    uint8_t* contents;
-    char* name;
-    uint32_t inodeNumber;
-    //opendirectory(inode* inode, )
-    //malloc array big enough to hold directory
-    //read in stuff
-    //rewindDirectory()
-    //set cursor to 0 or 24 to skip . and .. directories
-    //getNextEntry()
-    //return true if there is a next entry, false otherwise
-    //uses cursor to go into array thats been read in, get next directory entry (inode and name)
-    //then move cursor to next record
-    //if cursor = filesize return false
-    //else return true
-
-} Directory;
-
-typedef struct {
-    uint8_t ** iNodeBitmap;
-    uint8_t ** blockBitmap;
-} Bitmaps;
 
 typedef struct vdiFile{
     vdiHeader* header;
     long long cursor;
     FILE* file;
     SuperBlock* superBlock;
-    BlockGroupDescriptorTable* blockGroupDescriptorTable;
+    BlockGroupDescriptor ** blockGroupDescriptorTable;
 }vdiFile;
 
 #endif //INTEGRITY_CHECKER_VDISTRUCTURE_H
