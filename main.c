@@ -1,24 +1,14 @@
 #include <stdio.h>
-#include <conio.h>
-#include <math.h>
 #include "vdiStructure.h"
 #include "vdiFunctions.h"
 
-//#define path "../../VDI_Files/Test-fixed-1k.vdi"
-
 int main(int argc, char *argv[]){
-    int j;
-    if( argc >= 2 ){
-        printf("The arguments supplied are:\n");
-        for(j = 1; j < argc; j++){
-            printf("%s\t", argv[j]);
-        }
-    }else{
-        printf("argument list is empty.\n");
-    }
+    char *fileName;
+    fileName = argv[1];
+
+    vdiFile* vdi = vdiOpen(fileName);
 
     printf("Ext2 Filesystem Integrity Checker\n---------------------------------");
-    vdiFile* vdi = vdiOpen(argv[1]);
     printf("\nTotal filesystem size in bytes: %d", (vdi->superBlock->totalBlocks)*(vdi->superBlock->blockSize));
     printf("\nSize available for files (used): %d", ((vdi->superBlock->totalBlocks)-(vdi->superBlock->totalUnallocatedBlocks))*(vdi->superBlock->blockSize));
     printf("\nSize available for files (unused): %d",(vdi->superBlock->totalUnallocatedBlocks)*(vdi->superBlock->blockSize));

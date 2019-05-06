@@ -130,7 +130,6 @@ void vdiRead(vdiFile* vdi, uint8_t* buffer, size_t nbytes){
     fread(buffer, 1, nbytes, vdi->file);
 }
 
-//seeks to block number, gets that block, then stores it into the buffer.
 void fetchBlock(vdiFile* vdi, uint8_t* buffer, uint32_t blockNumber){
     vdiSeek(vdi, blockNumber*vdi->superBlock->blockSize, 0);
     vdiRead(vdi, buffer, vdi->superBlock->blockSize);
